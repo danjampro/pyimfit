@@ -1,0 +1,7 @@
+# -*- mode: gitignore; -*-
+
+build/
+*.a
+*.egg-info
+*/__pycache__/
+*.so

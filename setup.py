@@ -71,6 +71,11 @@ except KeyError:
     os.environ["CC"] = DEFAULT_CPP
     compilerName = DEFAULT_CPP
 
+#compilerName = "/opt/local/bin/g++-mp-9"
+#compilerName = "/opt/local/bin/clang++-mp-9.0"
+compilerName = '/opt/local/bin/g++-mp-8'
+
+print(compilerName)
 
 # Code to make sure the C++ compiler can handle OpenMP
 OPENMP_TEST_CODE = \
@@ -95,11 +100,23 @@ def check_for_openmp(compilerName=compilerName):
     with open(filename, 'w') as file:
         file.write(OPENMP_TEST_CODE)
     with open(os.devnull, 'w') as fnull:
+        '''
         if MACOS_COMPILATION and (compilerName == "clang++"):
             args = [compilerName, '-Xpreprocessor', '-fopenmp', '-lomp', filename]
         else:
-            args = [compilerName, '-fopenmp', filename]
-        result = subprocess.call(args, stdout=fnull, stderr=fnull)
+            args = [compilerName, "-isysroot`xcrun --show-sdk-path`", '-fopenmp', filename]
+        '''
+        #args = [compilerName, '-Xpreprocessor', '-fopenmp', '-lomp', '-I/opt/local/include', '-I/opt/local/include/libomp', '-L/opt/local/lib', '-L/opt/local/lib/libomp', filename]
+        #result = subprocess.call(args)
+        #result = subprocess.call(args, stderr=fnull)
+        
+        #cmd = '%s -isysroot`xcrun --show-sdk-path` -fopenmp %s' % (compilerName, filename)
+        cmd = '%s -fopenmp %s' % (compilerName, filename)
+      
+        #cmd = '%s -Xpreprocessor -fopenmp -lomp -I/opt/local/include -I/opt/local/include/libomp -L/opt/local/lib -L/opt/local/lib/libomp %s' % (compilerName, filename)
+        result = subprocess.call(cmd, shell=True)
+        print(cmd)
+        
     os.chdir(curdir)
     #clean up
     shutil.rmtree(tmpdir)
@@ -142,7 +159,8 @@ BAD_GCC_VERSION_MESSAGE = """setup.py: ERROR: GCC version 5.0 or later required!
 NAME = "pyimfit"           # Name for whole project and for "distribution package"
                            # = how it will be listed on PyPI
 SRC_DIR = "pyimfit"        # This will be package ("import package") name (e.g., >>> import pyimfit)
-IMFIT_SOURCE_DIR = "imfit"
+#IMFIT_SOURCE_DIR = "imfit"
+IMFIT_SOURCE_DIR = "/Users/danjampro/Software/imfit"
 PACKAGES = [SRC_DIR]
 
 
@@ -174,7 +192,7 @@ if MACOS_COMPILATION and (compilerName == "clang++"):
 SCONS_CMD = "scons {0} libimfit.a"
 SCONS_CLANG_CMD = "scons --clang-openmp libimfit.a"
 SCONS_ERR = "*** Unable to build initial static library (libimfit.a)!\nTerminating build...."
-EXTRA_SCONS_FLAGS = "--cpp={0}".format(compilerName)
+EXTRA_SCONS_FLAGS = "--no-openmp --cpp={0}".format(compilerName)
 
 def build_library_with_scons( extraFlags=EXTRA_SCONS_FLAGS ):
     """Simple command to call SCons in order to build libimfit.a in the Imfit
@@ -206,22 +224,29 @@ class my_build_ext( build_ext ):
     def run(self):
         # Check to see if we have usable compilers (also good for compiling previously
         # generated Cython C++ files):
+        print(1)
         if not check_for_openmp():
             sys.exit(NON_OPENMP_MESSAGE)
         if (not MACOS_COMPILATION) and (not check_gcc_version()):
             gccVersionNum = check_gcc_version(getVersion=True)
             sys.exit(BAD_GCC_VERSION_MESSAGE.format(gccVersionNum))
+            
+        print(2)  
         
         # Check to see if libimfit.a already exists
-        if not os.path.exists(PREBUILT_PATH + "libimfit.a"):
+        #if not os.path.exists(PREBUILT_PATH + "libimfit.a"):
+        if True:
             # first, build the static C++ library with SCons and copy it to IMFIT_LIBRARY_PATH
+            print('Building imfit...')
             success = build_library_with_scons()
             if not success:
                 print(SCONS_ERR)
                 sys.exit(1)
         else:
+            print('Found Imfit!')
             shutil.copy(PREBUILT_PATH + "libimfit.a", IMFIT_LIBRARY_PATH + "libimfit.a")
 
+        print(3)
         # now call the parent class's run() method, which will use *this* instance's list of
         # extensions (e.g., the cythonized extensions) and do standard build_ext things with them.
         super().run()
@@ -242,8 +267,24 @@ if MACOS_COMPILATION and compilerName == "clang++":
     extraCompileArgs = ["-Xpreprocessor", "-fopenmp", '-std=c++11']
     extraLinkerArgs = ["-Xpreprocessor", "-fopenmp", "-Xlinker", "-w"]
 else:
-    extraCompileArgs = ["-fopenmp", '-std=c++11']
-    extraLinkerArgs = ["-fopenmp"]
+    #'xcrun --show-sdk-path'
+    extraCompileArgs = ["-fopenmp", '-std=c++11']#'-I/opt/local/include -I/usr/include']
+    extraLinkerArgs = ['-fopenmp']
+    
+    extraCompileArgs.extend(['-I/opt/local/include', '-I/usr/include'])
+    extraLinkerArgs.extend(['-L/opt/local/lib/libomp', '-L/opt/local/lib',
+                            '-L/usr/local/opt/nlopt/lib'])
+    extraLinkerArgs.extend(['-lgomp', '-Wl,-rpath,/opt/local/lib/gcc8/'])
+    
+'''
+extraCompileArgs = ["-Xpreprocessor", "-fopenmp", '-std=c++11',
+                    '-I/opt/local/include', '-I/usr/include', '-stdlib=libc++',
+                    -asfa ffa af
+                    '-I/opt/local/include', '-I/opt/local/include/libomp']
+extraLinkerArgs = ["-Xpreprocessor", "-fopenmp", "-Xlinker", "-w",
+                   '-L/opt/local/lib', '-L/opt/local/lib/libomp',
+                   '-L/opt/local/lib/gcc8/']
+''' 
 extensions = [
     # specify how to create the Cython-based extension module pyimfit_lib.so
     Extension(SRC_DIR + ".pyimfit_lib",     # [= pyimfit.pyimfit_lib] = base name for .so file

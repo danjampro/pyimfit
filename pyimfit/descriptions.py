@@ -300,8 +300,8 @@ class FunctionDescription(object):
 
 
     def addParameter( self, p: ParameterDescription ):
-        if not isinstance(p, ParameterDescription):
-            raise ValueError('p is not a ParameterDescription object.')
+        #if not isinstance(p, ParameterDescription):
+        #    raise ValueError('p is not a ParameterDescription object.')
         self._parameters.append(p)
         # add parameter name as an attribute, so we can do things like
         # function_instance.<param_name>
@@ -668,9 +668,11 @@ class ModelDescription(object):
         self.nFunctionSets = 0
         if functionSetsList is not None:
             for fs in functionSetsList:
+                print('Adding function on init')
                 # note that addFunctionSet will increment nFunctionSets, so we don't need to
                 # do that here
                 self.addFunctionSet(fs)
+            print('Nfunctionsets: %i' % (len(self.functionSets)))
 
 
     @classmethod
